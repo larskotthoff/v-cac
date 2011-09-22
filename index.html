@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Major US companies by African countries</title>
+        <script type="text/javascript" src="https://raw.github.com/mbostock/d3/master/d3.min.js"></script>
+        <script type="text/javascript" src="https://raw.github.com/mbostock/d3/master/d3.geo.min.js"></script>
+        <script type="text/javascript" src="https://raw.github.com/mbostock/d3/master/d3.layout.min.js"></script>
+        <script type="text/javascript" src="http://code.jquery.com/jquery-1.6.2.min.js"></script>
+        <script type="text/javascript" src="https://raw.github.com/bigmlcom/tipsy/master/src/javascripts/jquery.tipsy.js"></script>
+        <style type="text/css"> 
+.tipsy {
+  padding: 5px;
+  font-size: 12px;
+  font-family: "URW Gothic L", sans;
+  position: absolute;
+  z-index: 100000;
+}
+
+.tipsy-inner {
+  padding: 5px 8px 4px 8px;
+  background-color: #000;
+  color: #eee;
+  max-width: 200px;
+  text-align: center;
+}
+
+.tipsy-inner {
+  border-radius: 3px;
+  -moz-border-radius:3px;
+  -webkit-border-radius:3px;
+}
+
+.tipsy-arrow {
+  position: absolute;
+  width: 9px;
+  height: 5px;
+}
+
+.tipsy-sw .tipsy-arrow { bottom: 0px; left: 10px; }
+.tipsy-se .tipsy-arrow { bottom: 0px; right: 10px; }
+.tipsy-nw .tipsy-arrow { top: 0px; left: 10px; }
+.tipsy-ne .tipsy-arrow { top: 0px; right: 10px; }
+
+body {
+  background-color: #faf5df;
+}
+text {
+  font-size: 12px;
+  font-family: "Sawasdee", "URW Gothic L", sans;
+  text-rendering: optimizeLegibility;
+}
+text.list {
+  font-size: 20px;
+}
+text.expl {
+  font-size: 14px;
+}
+text.title {
+  font-size: 24px;
+  font-weight: bold;
+}
+text.active {
+  fill: #dd2f00;
+}
+
+path {
+  stroke: #222;
+}
+path.overlay {
+  stroke: none;
+  fill: #dd2f00;
+}
+path.overlay:hover {
+  stroke: #dd2f00;
+  stroke-width: 2;
+}
+        </style>
+    </head>
+
+    <body>
+        <script type="text/javascript">
+        var proj = d3.geo.equirectangular().scale(1).translate([0,0]),
+            path = d3.geo.path().projection(proj),
+            margin = 25,
+            width = window.innerWidth - margin,
+            height = window.innerHeight - margin,
+            svg = d3.select("body")
+                .append("svg:svg")
+                .attr("height", height)
+                .attr("width", width),
+            canvas = svg.append("svg:g").attr("height", height - 5*margin)
+                .attr("transform", "translate("+margin+","+3*margin+")"),
+            clist = canvas.append("svg:g").attr("width", "30%"),
+            map = canvas.append("svg:g")
+                    .attr("width", "70%")
+                    .attr("transform", "translate(" +
+                            (0.3 * window.innerWidth - margin) + "," +
+                            margin + ")");
+
+            svg.append("svg:text")
+                .classed("title", true)
+                .attr("text-anchor", "start")
+                .attr("x", 1.5*margin)
+                .attr("y", 1.5*margin)
+                .text("Value of US companies compared to the GDP of African countries");
+            svg.append("svg:text")
+                .classed("expl", true)
+                .attr("text-anchor", "end")
+                .attr("x", width-margin)
+                .attr("y", 3*margin)
+                .text("cumulative GDP of shaded countries is approximately the same as value of selected company");
+            svg.append("svg:text")
+                .classed("expl", true)
+                .attr("text-anchor", "end")
+                .attr("x", width-margin)
+                .attr("y", 4*margin)
+                .text("all numbers in billion US $");
+            svg.append("svg:text")
+                .attr("text-anchor", "start")
+                .attr("y", height-5)
+                .text("GDP data from IMF for 2011 (2010 for Libya), Company market capitalisation as of 02 September 2011");
+            svg.append("svg:text")
+                .attr("text-anchor", "end")
+                .attr("x", width)
+                .attr("y", height-5)
+                .text("Lars Kotthoff 2011");
+        
+            d3.json("africa.geojson", function(json) {
+                var bounds0 = d3.geo.bounds(json),
+                    bounds = bounds0.map(proj),
+                    xscale = 0.6 * width/Math.abs(bounds[1][0] - bounds[0][0]),
+                    yscale = (height - 5 * margin) /
+                        Math.abs(bounds[1][1] - bounds[0][1]),
+                    scale = Math.min(xscale, yscale);
+
+                proj.scale(scale);
+                proj.translate(proj([-bounds0[0][0], -bounds0[1][1]]));
+
+                var countries = json.features.sort(function(a, b) {
+                        return a.p.g - b.p.g;
+                    }),
+                    gdpmax = countries[countries.length-1].p.g,
+                    cscale = d3.scale.pow().exponent(.5).domain([0, gdpmax])
+                        .range(["#fae893", "#756518"]);
+
+                map.append("svg:g").selectAll("path")
+                    .data(countries)
+                    .enter().append("svg:path")
+                    .attr("d", path)
+                    .attr("fill", function(d) { return cscale(d.p.g); });
+                map.append("svg:g").selectAll("path.overlay")
+                    .data(countries)
+                    .enter().append("svg:path")
+                    .classed("overlay", true)
+                    .attr("fill-opacity", 0)
+                    .attr("d", path)
+                    .append("original-title").text(function(d) {
+                        var c = proj(d.geometry.coordinates[0][0]);
+                        if(c[0] > width/2) {
+                            if(c[1] > height/2) {
+                                $(this).parent().tipsy({gravity:'se'});
+                            } else {
+                                $(this).parent().tipsy({gravity:'ne'});
+                            }
+                        } else {
+                            if(c[1] > height/2) {
+                                $(this).parent().tipsy({gravity:'sw'});
+                            } else {
+                                $(this).parent().tipsy({gravity:'nw'});
+                            }
+                        }
+                        return d.p.n + ": " +
+                            (d.p.g > 0 ? d.p.g : "n/a");
+                    });
+                d3.json("companies.json", function(cjson) {
+                    clist.selectAll("text")
+                        .data(cjson).enter()
+                        .append("svg:text")
+                        .classed("list", true)
+                        .attr("transform", function(d, i) {
+                                return "translate(0," + (i * 30) + ")";
+                            })
+                        .text(function(d) {
+                            return d.c + ": " + d.v;
+                        })
+                        .on("mouseout", function(d) {
+                            d3.select(d3.event.target).classed("active", false);
+                            map.selectAll("path.overlay")
+                                .attr("fill-opacity", 0);
+                        })
+                        .on("mouseover", function(d) {
+                            d3.select(d3.event.target).classed("active", true);
+                            var curv = 0;
+                            map.selectAll("path.overlay").filter(function(e) {
+                                    if(e.p.g > 0) {
+                                        curv += e.p.g;
+                                        return d.v >= curv;
+                                    } else {
+                                        return false;
+                                    }
+                                })
+                                .attr("fill-opacity", 0.5);
+                        });
+                });
+            });
+        </script>
+    </body>
+</html>
